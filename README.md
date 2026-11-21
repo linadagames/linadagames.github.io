@@ -4,10 +4,7 @@ Website for Linada Games: https://linadagames.github.io
 
 - `index.html` – studio home page
 - `games/` – games list and one page per game (Google Play / App Store links)
-- `games/bus-depot-puzzle/privacy.html` – Bus Depot Puzzle privacy policy (English)
-- `games/neon-ray-runner/privacy.html` – Neon Ray Runner privacy policy (English)
-- `games/jewel-blocks/privacy.html` – Jewel Blocks privacy policy (English)
-- `privacy.html` – privacy policy covering all Linada Games apps (English)
+- `privacy.html` – general Linada Games privacy policy (English); each game has its own at `games/<game>/privacy.html`
 - `app-ads.txt` – AdMob authorized sellers
 - `play/` – web version removed; redirects to the game page
 
