@@ -2235,7 +2235,7 @@ function drawBlock(i, px, py, lift, alpha = 1, colorIdx = null) {
   if (shake && shake.i === i) px += Math.sin(performance.now() / 25) * cell * .06 * Math.max(0, 1 - (performance.now() - shake.at) / 350);
   ctx.save(); ctx.translate(0, 3 + lift * 5); blockPath(b, px, py); ctx.fillStyle = 'rgba(40,20,5,' + (0.28 + lift*.12) + ')'; ctx.fill(); ctx.restore();
   ctx.translate(0, -lift * 3);
-  const sq = colorIdx == null ? (squash[i] || 0) : 0;
+  const sq = colorIdx == null && Number.isFinite(squash[i]) ? squash[i] : 0;
   if (sq) { // squash and stretch around the block's centre
     const r = blockRectAt(b, px, py), cx = r.x + r.w / 2, cy = r.y + r.h;
     ctx.translate(cx, cy); ctx.scale(1 + sq * .14, 1 - sq * .14); ctx.translate(-cx, -cy);
@@ -2337,9 +2337,9 @@ function drawFrame(time) {
   st.pos.forEach((p, i) => {
     if (!p) return;
     const near = Math.abs(vis[i][1] - p[1]) < .04 && Math.abs(vis[i][0] - p[0]) < .04;
-    if (squash[i] || squashV[i]) { // damped spring: wobbles a couple of times, then settles
-      squashV[i] = (squashV[i] || 0) + (-0.0009 * squash[i] - 0.06 * (squashV[i] || 0)) * dt; squash[i] += squashV[i] * dt;
-      if (Math.abs(squash[i]) < .01 && Math.abs(squashV[i]) < .0005) { squash[i] = 0; squashV[i] = 0; }
+    if (squash[i]) { // the bump fades out smoothly; frame-rate independent, so it can't wobble or blow up on slow phones
+      squash[i] = Number.isFinite(squash[i]) ? squash[i] * Math.pow(0.002, dt / 260) : 0;
+      if (Math.abs(squash[i]) < .01) squash[i] = 0;
     }
   });
   ctx.save(); ctx.beginPath(); ctx.rect(ox, oy, cell * lv.w, cell * lv.h); ctx.clip();
