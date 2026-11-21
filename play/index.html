@@ -1951,7 +1951,7 @@ function say(msg, ms = 2600) { $('hintMsg').textContent = msg; clearTimeout(sayT
 // ---- time limit ----
 const timerOn = true; // every level is timed; there is no setting to turn it off
 let timeLeft = 0, timeStarted = false, failed = false, lastTick = 0;
-const levelTime = l => Math.max(30, Math.ceil((30 + l.moves * 8 + l.blocks.length * 3) / 5) * 5 - 20); // 20 s tighter than before, never under 30 s
+const levelTime = l => Math.max(30, Math.ceil((15 + l.moves * 4 + l.blocks.length * 2) / 5) * 5); // about 4 s per target move, never under 30 s
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const OVERLAYS = ['winBox', 'menuBox', 'helpBox', 'failBox', 'setBox', 'introBox', 'offerBox', 'livesBox', 'confirmBox'];
 const anyOverlay = () => OVERLAYS.some(id => !$(id).hidden);
@@ -2013,7 +2013,7 @@ function startLevel(level, opts = {}) {
   if (!REDUCED) vis = st.pos.map((p, i) => [p[0], p[1] - lv.h - 1 - i * .35]);
   combo = 0; floats = [];
   exiting = []; particles = []; drag = null; won = false; failed = false; hammerMode = false; shake = null;
-  nudged = false; hideNudge(); fails = opts.keepFails ? fails : 0; timeStarted = false; timeLeft = levelTime(lv); lastTick = 0;
+  nudged = false; hideNudge(); fails = opts.keepFails ? fails : 0; timeStarted = true; timeLeft = levelTime(lv); lastTick = 0;
   hintsLeft = HINTS_PER_LEVEL; hintShow = null; hintBusy = false; hintSeq++; // drop any hint still being computed
   $('hintMsg').textContent = '';
   applyTheme(); setLevelText(); updateHud(); paintTime(); resize();
@@ -2031,7 +2031,7 @@ function setLevelText() {
   $('par').textContent = lv.moves;
   const tag = $('diffTag'); tag.hidden = lv.moves < 26; tag.textContent = t(lv.moves >= 34 ? 'veryHard' : 'hard'); tag.classList.toggle('vh', lv.moves >= 34);
   const firstAxis = mode === 'level' && lv.blocks.some(b => b.ax) && !LEVELS.slice(0, L).some(l => l.blocks.some(b => b.ax));
-  $('hintText').textContent = mode === 'level' && L === 0 ? t('hintFirst') : firstAxis ? t('hintAxis') : (timerOn && !timeStarted && L === 1) ? t('hintStart') : t('hintSize', { w: lv.w, h: lv.h, n: lv.blocks.length });
+  $('hintText').textContent = mode === 'level' && L === 0 ? t('hintFirst') : firstAxis ? t('hintAxis') : t('hintSize', { w: lv.w, h: lv.h, n: lv.blocks.length });
 }
 function updateHud() {
   if ($('moves').textContent !== String(st.mv)) { $('moves').textContent = st.mv; const m = $('moves'); m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); }
@@ -2413,7 +2413,7 @@ cv.addEventListener('pointermove', e => {
       if (Math.abs(rem) < 0.5 || (!dx && !dy)) continue;
       const q = [p[0] + dx, p[1] + dy];
       if (fits(lv, g, i, q)) {
-        drag.moved = true; stepped = true; if (!timeStarted) { timeStarted = true; setLevelText(); } knock(0.9 + Math.random() * .25);
+        drag.moved = true; stepped = true; knock(0.9 + Math.random() * .25);
         const res = arrive(lv, st, g, i, q, st.mv);
         if (res.gate) { exitBlock(i, q, res); return; }
         st.pos[i] = q;
