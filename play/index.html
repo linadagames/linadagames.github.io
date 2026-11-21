@@ -1860,10 +1860,10 @@ $('offerClose').onclick = () => { $('offerBox').hidden = true; };
 $('offerAd').onclick = async () => {
   const kind = offerAction; $('offerBox').hidden = true;
   if (!(await watchAd(kind))) return;
-  if (kind === 'hint') askHint(true);
+  if (kind === 'hint') askHint('none');
   if (kind === 'coins') { const d = store.get('coinAds', {}); d[todayKey()] = (d[todayKey()] || 0) + 1; store.set('coinAds', { [todayKey()]: d[todayKey()] }); setCoins(coins + AD_RULES.coinAdReward); flyCoinsFrom($('coinChip'), 5); }
 };
-$('offerCoins').onclick = () => { $('offerBox').hidden = true; if (offerAction === 'hint' && spend(PRICE.hint, 'hint')) askHint(true); };
+$('offerCoins').onclick = () => { $('offerBox').hidden = true; if (offerAction !== 'hint') return; if (coins < PRICE.hint) { spend(PRICE.hint, 'hint'); return; } askHint('coins'); }; // charged when the move is made
 
 // ---- over the move target: no penalty, just offer a hint (once per attempt) ----
 let nudgeTimer = 0;
@@ -1873,7 +1873,7 @@ function checkOver() {
   tone(660, 0, .12, .08); track('nudge_shown', { level: L + 1, moves: st.mv, target: lv.moves });
 }
 function hideNudge() { clearTimeout(nudgeTimer); $('nudge').hidden = true; }
-$('nudgeBtn').onclick = () => { hideNudge(); track('nudge_hint', { level: L + 1 }); askHint(false); };
+$('nudgeBtn').onclick = () => { hideNudge(); track('nudge_hint', { level: L + 1 }); askHint(); };
 $('nudgeX').onclick = hideNudge;
 
 // ---- lives: lose one when you give up a started level; one comes back every 30 minutes ----
@@ -2023,7 +2023,7 @@ function loadLevel(i, opts = {}) {
   store.set('levelId', LEVELS[L].id);
   startLevel(LEVELS[L], opts);
   track('level_start', { level: L + 1 });
-  if (!opts.restore) { store.del('run'); maybeIntro(); if (L === 0 && !Object.keys(progress).length) setTimeout(() => { if (mode === 'level' && L === 0 && st.mv === 0) askHint(true); }, 900); }
+  if (!opts.restore) { store.del('run'); maybeIntro(); if (L === 0 && !Object.keys(progress).length) setTimeout(() => { if (mode === 'level' && L === 0 && st.mv === 0) askHint('none'); }, 900); }
 }
 function setLevelText() {
   const chapter = Math.floor(L / CHAPTER);
@@ -2443,7 +2443,21 @@ cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 
 // called after every finished move: thawing ice, swinging gates, saving
+// after a move: if it was the hinted move, the hint counts as used (and is paid for); either way the hint goes away
+function settleHint() {
+  if (!hintShow) return;
+  const h = hintShow, p = st.pos[h.i];
+  const used = h.out ? (!p || st.layer[h.i] > h.layer0) : !!(p && p[0] === h.to[0] && p[1] === h.to[1]);
+  hintShow = null;
+  if (used) {
+    if (h.cost === 'free') hintsLeft = Math.max(0, hintsLeft - 1);
+    if (h.cost === 'coins' && coins >= PRICE.hint) { setCoins(coins - PRICE.hint); clink(); track('spend_hint', { coins: PRICE.hint }); }
+    track('hint_used', { level: L + 1, cost: h.cost });
+  }
+  paintHint();
+}
 function afterMove() {
+  settleHint();
   lv.blocks.forEach((b, i) => { if (iceShown[i] && st.pos[i] && !iceLeft(lv, st, i)) { iceShown[i] = false; const r = blockRect(i); burst(r.x, r.y, r.w, r.h, ['#dff3ff', '#ffffff', '#9fd3ff'], 24); tone(1568, 0, .2, .08); tone(2093, .08, .25, .06); } });
   if (lv.gates.some(g => g.toggle)) knock(.35);
   saveRun();
@@ -2569,17 +2583,19 @@ function maybeIntro() {
 // ---- hints: the solver runs in a worker from the current position and shows the next slide ----
 const HINTS_PER_LEVEL = 3;
 let hintsLeft = HINTS_PER_LEVEL, hintShow = null, hintBusy = false, hintWorker = null, hintSeq = 0;
-function askHint(free = false) {
+// A hint is only paid for when the player actually makes the suggested move:
+// cost 'free' uses one of the level's free hints, 'coins' charges 30 coins, 'none' (ad watched, tutorial) costs nothing.
+function askHint(paid = null) {
   if (won || failed || hintBusy || drag || anyOverlay()) return;
-  if (!free && hintsLeft <= 0) { offer('hint'); return; } // ask first: watch an ad (app) or pay coins
+  const cost = paid || (hintsLeft > 0 ? 'free' : null);
+  if (!cost) { offer('hint'); return; } // no free hints left: ask first (watch an ad in the app, or pay coins)
   hideNudge(); hintBusy = true; paintHint(); audio();
   const id = ++hintSeq, snap = snapState();
   const done = move => {
     if (id !== hintSeq) return;
     hintBusy = false;
     if (!move) { say(t('hintNone')); paintHint(); return; }
-    if (!free && hintsLeft > 0) hintsLeft--;
-    hintShow = { ...move, from: snap.pos[move.i], at: performance.now(), key: JSON.stringify(snap) };
+    hintShow = { ...move, from: snap.pos[move.i], layer0: snap.layer[move.i], cost, at: performance.now(), key: JSON.stringify(snap) };
     track('hint', { level: L + 1 }); paintHint(); saveRun(); tone(880, 0, .12, .1); tone(1320, .08, .15, .1);
   };
   const local = () => { const r = solve(lv, snap, 150000, 'auto'); done(r && r.first); };
@@ -2604,7 +2620,7 @@ function paintHammer() {
 }
 function drawHint(time) {
   if (!hintShow) return;
-  if (JSON.stringify(snapState()) !== hintShow.key) { hintShow = null; return; }
+  if (drag || JSON.stringify(snapState()) !== hintShow.key) return; // hidden while the board changes; settleHint() decides after the move
   const b = lv.blocks[hintShow.i], [fx, fy] = hintShow.from, [tx, ty] = hintShow.to;
   const u = ((time - hintShow.at) % 1400) / 1400, e = u < .7 ? u / .7 : 1;
   const px = ox + (fx + (tx - fx) * e) * cell, py = oy + (fy + (ty - fy) * e) * cell;
@@ -2617,7 +2633,7 @@ function drawHint(time) {
 }
 
 // ---- buttons ----
-$('hint').onclick = () => askHint(false);
+$('hint').onclick = () => askHint();
 $('hammer').onclick = () => {
   if (won || failed) return;
   if (!hammerMode && coins < PRICE.hammer) { spend(PRICE.hammer, 'hammer'); return; }
@@ -2660,7 +2676,7 @@ $('skip').onclick = () => {
   if (progress[lv.id] == null) { progress[lv.id] = 0; store.set('progress', progress); }
   track('level_skip', { level: L + 1 }); $('failBox').hidden = true; loadLevel(L + 1);
 };
-$('startBtn').onclick = () => { $('helpBox').hidden = true; store.set('seenHelp', true); audio(); if (mode === 'level' && L === 0 && !Object.keys(progress).length) setTimeout(() => { if (mode === 'level' && L === 0 && st.mv === 0) askHint(true); }, 400); };
+$('startBtn').onclick = () => { $('helpBox').hidden = true; store.set('seenHelp', true); audio(); if (mode === 'level' && L === 0 && !Object.keys(progress).length) setTimeout(() => { if (mode === 'level' && L === 0 && st.mv === 0) askHint('none'); }, 400); };
 
 // ---- daily reminder (Android app only) ----
 // On by default. The permission prompt is shown when the player turns it on, or after
