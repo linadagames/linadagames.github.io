@@ -123,3 +123,4 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.1; text-wrap: bala
 @media (max-width: 640px) { .shots img { width: 170px; } }
 .shots.wide img { width: 420px; aspect-ratio: 16 / 9; border-radius: 18px; }
 @media (max-width: 640px) { .shots.wide img { width: 300px; } }
+.shots.phone img { aspect-ratio: 9 / 16; }
