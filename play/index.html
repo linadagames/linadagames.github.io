@@ -1839,7 +1839,7 @@ function paintAdButtons() {
   const can = ads.ok;
   $('adTime').hidden = !can; $('adTime').textContent = t('adTime'); $('adTime').disabled = !ads.rewardedReady;
   $('adDouble').disabled = !ads.rewardedReady;
-  $('offerAd').hidden = !can; $('offerAd').disabled = !ads.rewardedReady;
+  $('offerAd').hidden = !can || (offerAction === 'coins' && coinAdsLeft() <= 0); $('offerAd').disabled = !ads.rewardedReady;
 }
 // offer card: watch an ad or pay coins
 let offerAction = null;
@@ -1859,6 +1859,7 @@ function offer(kind) {
 $('offerClose').onclick = () => { $('offerBox').hidden = true; };
 $('offerAd').onclick = async () => {
   const kind = offerAction; $('offerBox').hidden = true;
+  if (kind === 'coins' && coinAdsLeft() <= 0) return;
   if (!(await watchAd(kind))) return;
   if (kind === 'hint') askHint('none');
   if (kind === 'coins') { const d = store.get('coinAds', {}); d[todayKey()] = (d[todayKey()] || 0) + 1; store.set('coinAds', { [todayKey()]: d[todayKey()] }); setCoins(coins + AD_RULES.coinAdReward); flyCoinsFrom($('coinChip'), 5); }
@@ -1899,6 +1900,7 @@ function loseLife() {
 // confirm before giving up a level that is under way (costs a life)
 let pendingLeave = null;
 function leaveLevel(action) {
+  if (won && $('winBox').hidden) return; // the level is being finished
   if (st.mv > 0 && !won && !failed) { pendingLeave = action; $('confirmBox').hidden = false; return; }
   action();
 }
@@ -1956,7 +1958,7 @@ const fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) 
 const OVERLAYS = ['winBox', 'menuBox', 'helpBox', 'failBox', 'setBox', 'introBox', 'offerBox', 'livesBox', 'confirmBox'];
 const anyOverlay = () => OVERLAYS.some(id => !$(id).hidden);
 function stepTimer(dt) {
-  if (!timerOn || !timeStarted || won || failed || anyOverlay() || document.hidden || ads.showing) return;
+  if (!timerOn || !timeStarted || won || failed || anyOverlay() || document.hidden || ads.showing || !lives()) return;
   timeLeft -= dt / 1000;
   if (timeLeft <= 10 && Math.ceil(timeLeft) !== lastTick && timeLeft > 0) { lastTick = Math.ceil(timeLeft); tick(); }
   if (timeLeft <= 0) { timeLeft = 0; failLevel(); }
@@ -1967,10 +1969,11 @@ function paintTime() {
   $('time').textContent = fmtTime(timeLeft);
   $('timeStat').classList.toggle('warn', timerOn && timeStarted && timeLeft <= 10 && !won);
 }
-function failLevel() {
+function failLevel(restoring = false) {
   hideNudge();
-  failed = true; drag = null; buzz(); vibrate(60); fails++;
-  track('level_fail', { level: L + 1 });
+  if (drag) { st.pos = st.pos.slice(); st.pos[drag.i] = drag.start.slice(); drag = null; } // an unfinished drag does not count
+  failed = true; buzz(); vibrate(60); if (!restoring) fails++;
+  if (!restoring) track('level_fail', { level: L + 1 });
   $('failText').textContent = t('failText', { n: st.pos.filter(Boolean).length });
   $('addTime').textContent = t('addTimeCost', { n: PRICE.time });
   $('skip').textContent = t('skip', { n: PRICE.skip }); $('retry').textContent = t('retryLife');
@@ -2013,7 +2016,7 @@ function startLevel(level, opts = {}) {
   if (!REDUCED) vis = st.pos.map((p, i) => [p[0], p[1] - lv.h - 1 - i * .35]);
   combo = 0; floats = [];
   exiting = []; particles = []; drag = null; won = false; failed = false; hammerMode = false; shake = null;
-  nudged = false; hideNudge(); fails = opts.keepFails ? fails : 0; timeStarted = true; timeLeft = levelTime(lv); lastTick = 0;
+  attempt++; nudged = false; hideNudge(); fails = opts.keepFails ? fails : 0; timeStarted = true; timeLeft = levelTime(lv); lastTick = 0;
   hintsLeft = HINTS_PER_LEVEL; hintShow = null; hintBusy = false; hintSeq++; // drop any hint still being computed
   $('hintMsg').textContent = '';
   applyTheme(); setLevelText(); updateHud(); paintTime(); resize();
@@ -2049,6 +2052,7 @@ const theme = () => THEMES[Math.floor(L / CHAPTER) % THEMES.length];
 
 // ---- save / resume the level in progress ----
 function saveRun() {
+  if (drag) return; // saved again when the move ends
   if (won) { store.del('run'); return; }
   store.set('run', { id: lv.id, st, timeLeft, timeStarted, hintsLeft, fails, failed, nudged });
 }
@@ -2057,11 +2061,14 @@ function restoreRun() {
   try {
     if (r.mode === 'daily' || r.id !== LEVELS[L].id) return false;
     loadLevel(L, { restore: true });
-    if (r.st.pos.length !== lv.blocks.length) return false;
+    if (r.st.pos.length !== lv.blocks.length || r.st.layer.length !== lv.blocks.length) return false;
+    // the level may have been changed by an update: every block must still fit and have a valid layer
+    const g = occupancy(lv, r.st.pos);
+    if (r.st.pos.some((p, i) => p && !fits(lv, g, i, p)) || r.st.layer.some((n, i) => n < 0 || n > (lv.blocks[i].layers || []).length)) return false;
     st = r.st; iceShown = lv.blocks.map((b, i) => iceLeft(lv, st, i) > 0); vis = st.pos.map((p, i) => p ? p.slice() : [lv.blocks[i].x, lv.blocks[i].y]);
-    timeLeft = r.timeLeft; timeStarted = r.timeStarted; hintsLeft = r.hintsLeft; fails = r.fails || 0; nudged = !!r.nudged;
+    timeLeft = r.timeLeft; timeStarted = r.timeStarted; hintsLeft = r.hintsLeft ?? HINTS_PER_LEVEL; fails = r.fails || 0; nudged = !!r.nudged;
     updateHud(); paintTime(); setLevelText();
-    if (r.failed) failLevel();
+    if (r.failed) failLevel(true);
     return true;
   } catch { return false; }
 }
@@ -2306,6 +2313,10 @@ function drawIce(b, i, px, py, mx, my, n) {
 // ---- loop ----
 let last = performance.now();
 function frame(time) {
+  try { drawFrame(time); } catch (e) { if (!frame.errAt || time - frame.errAt > 5000) { frame.errAt = time; console.error(e); } } // never let one bad frame stop the game
+  requestAnimationFrame(frame);
+}
+function drawFrame(time) {
   const dt = Math.min(50, time - last); last = time;
   stepTimer(dt);
   if (time - (frame.livesAt || 0) > 500) { frame.livesAt = time; paintLives(); }
@@ -2368,7 +2379,6 @@ function frame(time) {
     ctx.restore();
     ctx.globalAlpha = 1; return p.life > 0;
   });
-  requestAnimationFrame(frame);
 }
 function burst(x, y, w, h, colors, n = 22) {
   for (let k = 0; k < n; k++) particles.push({ x: x + Math.random()*w, y: y + Math.random()*h, vx: (Math.random()-.5)*.45, vy: -Math.random()*.5, life: 1, s: 4 + Math.random()*6, c: colors[k % colors.length], r: Math.random()*6, vr: (Math.random()-.5)*.02, star: k % 3 === 0 });
@@ -2451,7 +2461,7 @@ function settleHint() {
   hintShow = null;
   if (used) {
     if (h.cost === 'free') hintsLeft = Math.max(0, hintsLeft - 1);
-    if (h.cost === 'coins' && coins >= PRICE.hint) { setCoins(coins - PRICE.hint); clink(); track('spend_hint', { coins: PRICE.hint }); }
+    if (h.cost === 'coins') { setCoins(coins - Math.min(coins, PRICE.hint)); clink(); track('spend_hint', { coins: PRICE.hint }); }
     track('hint_used', { level: L + 1, cost: h.cost });
   }
   paintHint();
@@ -2487,20 +2497,23 @@ function exitBlock(i, p, res) {
   }
   if (keyFor.length && !st.pos[i]) { clink(); keyFor.forEach(j => { const br = blockRect(j); burst(br.x, br.y, br.w, br.h, ['#ffd34d', '#ffffff'], 16); }); }
   afterMove(); updateHud(); if (!solved(st)) checkOver();
-  if (solved(st)) { won = true; store.del('run'); setTimeout(win, 500); }
+  if (solved(st)) finishSolved();
 }
 
 function smash(i) {
   if (!spend(PRICE.hammer, 'hammer')) { hammerMode = false; updateHud(); return; }
   const r = blockRect(i), col = COLORS[colorOf(lv, st, i)];
+  hintShow = null; // smashing is not following a hint
   st.pos = st.pos.slice(); st.pos[i] = null; st.mv++;
   burst(r.x, r.y, r.w, r.h, [col.base, col.dark, '#8a5a35', '#fff4e3'], 40);
   crack(); vibrate([15, 30, 15]);
   hammerMode = false; say(''); track('hammer', { level: L + 1 });
   afterMove(); updateHud(); if (!solved(st)) checkOver();
-  if (solved(st)) { won = true; store.del('run'); setTimeout(win, 500); }
+  if (solved(st)) finishSolved();
 }
 
+let attempt = 0; // bumps on every level load, so a delayed win can't land on another level
+function finishSolved() { won = true; store.del('run'); const a = attempt; setTimeout(() => { if (a === attempt) win(); }, 500); }
 function win() {
   hideNudge();
   won = true; updateHud(); paintTime(); store.del('run');
@@ -2594,6 +2607,7 @@ function askHint(paid = null) {
   const done = move => {
     if (id !== hintSeq) return;
     hintBusy = false;
+    if (JSON.stringify(snapState()) !== JSON.stringify(snap)) { paintHint(); return; } // the board changed while thinking
     if (!move) { say(t('hintNone')); paintHint(); return; }
     hintShow = { ...move, from: snap.pos[move.i], layer0: snap.layer[move.i], cost, at: performance.now(), key: JSON.stringify(snap) };
     track('hint', { level: L + 1 }); paintHint(); saveRun(); tone(880, 0, .12, .1); tone(1320, .08, .15, .1);
@@ -2601,7 +2615,7 @@ function askHint(paid = null) {
   const local = () => { const r = solve(lv, snap, 150000, 'auto'); done(r && r.first); };
   try {
     hintWorker = hintWorker || new Worker(URL.createObjectURL(new Blob([CORE_SRC + '\nonmessage=e=>{const{id,lv,st}=e.data;const r=solve(lv,st,400000,"auto");postMessage({id,move:r&&r.first});};'], { type: 'text/javascript' })));
-    hintWorker.onmessage = e => done(e.data.move);
+    hintWorker.onmessage = e => { if (e.data.id === hintSeq) done(e.data.move); };
     hintWorker.onerror = () => { hintWorker = null; local(); };
     hintWorker.postMessage({ id, lv, st: snap });
   } catch { setTimeout(local, 30); }
@@ -2639,7 +2653,7 @@ $('hammer').onclick = () => {
   if (!hammerMode && coins < PRICE.hammer) { spend(PRICE.hammer, 'hammer'); return; }
   hammerMode = !hammerMode; say(hammerMode ? t('hammerPick') : '', hammerMode ? 0 : 1); updateHud();
 };
-$('restart').onclick = () => leaveLevel(() => { loadLevel(L); knock(.7); });
+$('restart').onclick = () => { if (st.mv === 0 && !failed && !won) { knock(.5); return; } leaveLevel(() => { loadLevel(L); knock(.7); }); };
 $('replay').onclick = () => { $('winBox').hidden = true; loadLevel(L); };
 $('next').onclick = async () => { $('winBox').hidden = true; await maybeInterstitial(); loadLevel(L + 1); };
 function openMenu() {
