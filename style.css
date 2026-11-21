@@ -121,3 +121,5 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.1; text-wrap: bala
 .shots { display: flex; gap: 16px; overflow-x: auto; padding: 28px 0 8px; scroll-snap-type: x mandatory; }
 .shots img { width: 220px; flex: none; aspect-ratio: 1 / 2; object-fit: cover; border-radius: 22px; box-shadow: 0 10px 26px rgba(40, 20, 60, .18); scroll-snap-align: start; }
 @media (max-width: 640px) { .shots img { width: 170px; } }
+.shots.wide img { width: 420px; aspect-ratio: 16 / 9; border-radius: 18px; }
+@media (max-width: 640px) { .shots.wide img { width: 300px; } }
