@@ -1951,7 +1951,7 @@ function say(msg, ms = 2600) { $('hintMsg').textContent = msg; clearTimeout(sayT
 // ---- time limit ----
 const timerOn = true; // every level is timed; there is no setting to turn it off
 let timeLeft = 0, timeStarted = false, failed = false, lastTick = 0;
-const levelTime = l => Math.max(30, Math.ceil((15 + l.moves * 4 + l.blocks.length * 2) / 5) * 5); // about 4 s per target move, never under 30 s
+const levelTime = l => Math.max(30, Math.ceil((15 + l.moves * 2 + l.blocks.length * 2) / 5) * 5); // 2 s per target move (+ a little per block), never under 30 s
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const OVERLAYS = ['winBox', 'menuBox', 'helpBox', 'failBox', 'setBox', 'introBox', 'offerBox', 'livesBox', 'confirmBox'];
 const anyOverlay = () => OVERLAYS.some(id => !$(id).hidden);
