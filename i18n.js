@@ -45,11 +45,13 @@
     }
     if (originalTitle === undefined) originalTitle = document.title;
     var t = document.querySelector('meta[name="i18n-title"]');
-    document.title = l === 'tr' && t && TR[t.content] ? TR[t.content] : originalTitle;
+    if (l === 'tr' && t && t.content === 'title.privacy') document.title = originalTitle.replace('Privacy Policy', 'Gizlilik Politikası');
+    else document.title = l === 'tr' && t && TR[t.content] ? TR[t.content] : originalTitle;
     var soon = document.querySelectorAll('.store.disabled');
     for (var j = 0; j < soon.length; j++) soon[j].title = l === 'tr' ? 'Çok yakında' : 'Coming soon';
-    // Privacy policies stay in English; only the menu is translated there.
-    if (!document.querySelector('.doc')) document.documentElement.lang = l;
+    document.documentElement.lang = l;
+    var blocks = document.querySelectorAll('[data-lang]');
+    for (var k = 0; k < blocks.length; k++) blocks[k].hidden = blocks[k].getAttribute('data-lang') !== l;
     var btn = document.getElementById('lang-switch');
     if (btn) { btn.textContent = l === 'tr' ? 'EN' : 'TR'; btn.setAttribute('aria-label', l === 'tr' ? 'Switch to English' : 'Türkçeye geç'); }
   }

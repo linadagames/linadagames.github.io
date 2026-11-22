@@ -4,7 +4,7 @@ Website for Linada Games: https://linadagames.github.io
 
 - `index.html` – studio home page
 - `games/` – games list and one page per game (Google Play / App Store links)
-- `i18n.js` – Turkish text for Turkish devices (English otherwise); privacy policies stay in English
+- `i18n.js` – Turkish for Turkish devices, English otherwise (TR/EN switch in the header); privacy pages carry both languages
 - `privacy.html` – general Linada Games privacy policy (English); each game has its own at `games/<game>/privacy.html`
 - `app-ads.txt` – AdMob authorized sellers
 - `play/` – web version removed; redirects to the game page
