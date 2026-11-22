@@ -78,9 +78,9 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.08; text-wrap: bal
 .game-genre { margin: 0; color: var(--muted); font-size: .85rem; font-weight: 700; }
 .game h3 { margin-top: 2px; font: 800 1.4rem/1.25 var(--font-body); color: var(--ink); letter-spacing: -.01em; min-height: 3.5rem; }
 .game-icon { position: relative; display: grid; place-items: center; height: 260px; margin-top: 8px; }
-.game-icon .icon, .game-icon .glow { grid-area: 1 / 1; width: 190px; height: 190px; border-radius: 24%; }
+.game-icon::before { content: ""; position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--glow, 140, 120, 230), .45), rgba(var(--glow, 140, 120, 230), .18) 55%, rgba(var(--glow, 140, 120, 230), 0)); pointer-events: none; }
+.game-icon .icon { grid-area: 1 / 1; width: 190px; height: 190px; border-radius: 24%; }
 .game-icon .icon { position: relative; box-shadow: 0 14px 30px rgba(27, 31, 59, .18); transition: opacity .25s, transform .25s; }
-.game-icon .glow { filter: blur(34px) saturate(1.4); opacity: .55; transform: scale(1.05); }
 .game .stores { grid-area: 1 / 1; position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity .25s, transform .25s; }
 .game:hover .stores, .game:focus-within .stores { opacity: 1; transform: none; pointer-events: auto; }
 .game:hover .icon, .game:focus-within .icon { opacity: 0; transform: scale(.92); }
@@ -96,8 +96,8 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.08; text-wrap: bal
 /* Touch screens and phones: badges sit under the icon */
 @media (hover: none), (max-width: 640px) {
   .game-icon { display: flex; flex-direction: column; align-items: center; height: auto; margin-top: 18px; }
-  .game-icon .icon, .game-icon .glow { width: 160px; height: 160px; }
-  .game-icon .glow { position: absolute; top: 0; }
+  .game-icon .icon { width: 160px; height: 160px; }
+  .game-icon::before { top: 80px; width: 260px; height: 260px; }
   .game .stores { grid-area: auto; opacity: 1; transform: none; pointer-events: auto; margin-top: 22px; }
   .game:hover .icon, .game:focus-within .icon { opacity: 1; transform: none; }
   .game:hover { transform: none; }
