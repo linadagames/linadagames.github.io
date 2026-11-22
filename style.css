@@ -47,7 +47,7 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.08; text-wrap: bal
 .hero h1 { font-size: clamp(2.8rem, 7vw, 5rem); }
 .hero h1 span { background: linear-gradient(90deg, #ff8fb5, var(--amber)); -webkit-background-clip: text; background-clip: text; }
 .hero p { font-size: 1.2rem; max-width: 540px; margin: 18px 0 28px; color: rgba(255, 255, 255, .82); }
-.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
 .hero-tags span { font-weight: 800; font-size: .9rem; padding: 6px 14px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); }
 .hero-icons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px 20px; max-width: 420px; justify-self: end; }
 .hero-icons img { width: 100%; aspect-ratio: 1; border-radius: 24%; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); transition: transform .3s; }
