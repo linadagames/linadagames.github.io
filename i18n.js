@@ -1,8 +1,6 @@
-/* Language: Turkish when the device language is Turkish, English otherwise. */
+/* Language: Turkish on Turkish devices (Turkish language or Turkey region), English otherwise.
+   Visitors can also switch with the TR / EN button in the header; the choice is remembered. */
 (function () {
-  var langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']);
-  var lang = String(langs[0] || 'en').toLowerCase().slice(0, 2) === 'tr' ? 'tr' : 'en';
-  if (lang !== 'tr') return;
   var TR = {
     'nav.home': 'Ana Sayfa',
     'nav.games': 'Oyunlar',
@@ -27,18 +25,43 @@
     'title.games': 'Oyunlar · Linada Games',
     'title.privacy': 'Gizlilik Politikası · Linada Games'
   };
-  function apply() {
-    // Privacy policies stay in English; only the menu is translated there.
-    if (!document.querySelector('.doc')) document.documentElement.lang = 'tr';
+  function deviceLang() {
+    var list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+    var first = String(list[0] || 'en').toLowerCase();
+    if (first.slice(0, 2) === 'tr' || /[-_]tr$/.test(first)) return 'tr';
+    return 'en';
+  }
+  function saved() { try { return localStorage.getItem('lang'); } catch (e) { return null; } }
+  function save(l) { try { localStorage.setItem('lang', l); } catch (e) {} }
+  var lang = saved() === 'tr' || saved() === 'en' ? saved() : deviceLang();
+  var originalTitle;
+
+  function apply(l) {
     var els = document.querySelectorAll('[data-i18n]');
     for (var i = 0; i < els.length; i++) {
-      var v = TR[els[i].getAttribute('data-i18n')];
-      if (v) els[i].innerHTML = v;
+      var el = els[i];
+      if (!el.hasAttribute('data-en')) el.setAttribute('data-en', el.innerHTML);
+      el.innerHTML = l === 'tr' && TR[el.getAttribute('data-i18n')] ? TR[el.getAttribute('data-i18n')] : el.getAttribute('data-en');
     }
+    if (originalTitle === undefined) originalTitle = document.title;
     var t = document.querySelector('meta[name="i18n-title"]');
-    if (t && TR[t.content]) document.title = TR[t.content];
+    document.title = l === 'tr' && t && TR[t.content] ? TR[t.content] : originalTitle;
     var soon = document.querySelectorAll('.store.disabled');
-    for (var j = 0; j < soon.length; j++) soon[j].title = 'Çok yakında';
+    for (var j = 0; j < soon.length; j++) soon[j].title = l === 'tr' ? 'Çok yakında' : 'Coming soon';
+    // Privacy policies stay in English; only the menu is translated there.
+    if (!document.querySelector('.doc')) document.documentElement.lang = l;
+    var btn = document.getElementById('lang-switch');
+    if (btn) { btn.textContent = l === 'tr' ? 'EN' : 'TR'; btn.setAttribute('aria-label', l === 'tr' ? 'Switch to English' : 'Türkçeye geç'); }
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply); else apply();
+  function init() {
+    var nav = document.querySelector('.site-header .nav');
+    if (nav && !document.getElementById('lang-switch')) {
+      var b = document.createElement('button');
+      b.id = 'lang-switch'; b.type = 'button'; b.className = 'lang-switch';
+      b.addEventListener('click', function () { lang = lang === 'tr' ? 'en' : 'tr'; save(lang); apply(lang); });
+      nav.appendChild(b);
+    }
+    apply(lang);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
